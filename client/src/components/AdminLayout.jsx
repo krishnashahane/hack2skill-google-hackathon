@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { Menu, LogOut } from 'lucide-react';
 import AdminSidebar from './AdminSidebar';
@@ -9,10 +9,11 @@ export default function AdminLayout() {
   const { user, logout } = useAuthStore();
   const navigate = useNavigate();
 
-  const handleLogout = () => {
-    logout();
-    navigate('/');
-  };
+  useEffect(() => { if (!user) navigate('/login', { replace: true }); }, [user, navigate]);
+
+  const handleLogout = () => { logout(); navigate('/'); };
+
+  if (!user) return null;
 
   return (
     <div className="flex min-h-screen bg-slate-50">

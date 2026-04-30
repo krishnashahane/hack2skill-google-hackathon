@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
-  Search, MapPin, ChevronDown, ArrowRight, Heart, Users, BarChart3,
+  Search, MapPin, ArrowRight, Heart, Users, BarChart3,
   Leaf, Globe, Shield, Sparkles, BookOpen, Handshake, Target,
   CheckCircle2, Star, TrendingUp, Clock, Award, Zap, X,
 } from 'lucide-react';
@@ -18,15 +18,16 @@ function LocationMapPopup({ onClose }) {
   const [nearbyPlaces, setNearbyPlaces] = useState([]);
 
   useEffect(() => {
+    const waitAndInit = (center) => {
+      if (window.google?.maps) { initMap(center); return; }
+      let n = 0;
+      const t = setInterval(() => { n++; if (window.google?.maps) { clearInterval(t); initMap(center); } else if (n > 30) clearInterval(t); }, 200);
+    };
     navigator.geolocation?.getCurrentPosition(
-      (pos) => {
-        const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        setUserLoc(loc);
-        initMap(loc);
-      },
-      () => initMap(userLoc)
+      (pos) => { const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude }; setUserLoc(loc); waitAndInit(loc); },
+      () => waitAndInit(userLoc)
     );
-  }, []);
+  }, [initMap]);
 
   const initMap = useCallback((center) => {
     if (!window.google || !mapRef.current) return;
@@ -126,22 +127,21 @@ function Navbar() {
   const [locationLabel, setLocationLabel] = useState('Detecting...');
 
   useEffect(() => {
+    const tryGeocode = (lat, lng) => {
+      if (window.google?.maps) {
+        new window.google.maps.Geocoder().geocode({ location: { lat, lng } }, (r) => {
+          if (r?.[0]) setLocationLabel(r[0].formatted_address.split(',').slice(0, 2).join(',').trim());
+          else setLocationLabel(`${lat.toFixed(2)}, ${lng.toFixed(2)}`);
+        });
+      } else setLocationLabel(`${lat.toFixed(2)}, ${lng.toFixed(2)}`);
+    };
+    const waitForGoogle = (lat, lng) => {
+      if (window.google?.maps) { tryGeocode(lat, lng); return; }
+      let n = 0;
+      const t = setInterval(() => { n++; if (window.google?.maps) { clearInterval(t); tryGeocode(lat, lng); } else if (n > 30) { clearInterval(t); setLocationLabel(`${lat.toFixed(2)}, ${lng.toFixed(2)}`); } }, 200);
+    };
     navigator.geolocation?.getCurrentPosition(
-      (pos) => {
-        if (window.google) {
-          const geocoder = new window.google.maps.Geocoder();
-          geocoder.geocode({ location: { lat: pos.coords.latitude, lng: pos.coords.longitude } }, (results) => {
-            if (results?.[0]) {
-              const parts = results[0].formatted_address.split(',');
-              setLocationLabel(parts.slice(0, 2).join(',').trim());
-            } else {
-              setLocationLabel(`${pos.coords.latitude.toFixed(2)}, ${pos.coords.longitude.toFixed(2)}`);
-            }
-          });
-        } else {
-          setLocationLabel(`${pos.coords.latitude.toFixed(2)}, ${pos.coords.longitude.toFixed(2)}`);
-        }
-      },
+      (pos) => waitForGoogle(pos.coords.latitude, pos.coords.longitude),
       () => setLocationLabel('Pune, Maharashtra')
     );
   }, []);
@@ -162,17 +162,10 @@ function Navbar() {
           </Link>
 
           <div className="hidden lg:flex items-center gap-6 text-sm font-medium text-gray-600">
-            <a href="#features" className="hover:text-emerald-600 transition">Get Involved</a>
-            <button className="flex items-center gap-1 hover:text-emerald-600 transition">
-              Find Opportunities <ChevronDown className="w-3 h-3" />
-            </button>
-            <button className="flex items-center gap-1 hover:text-emerald-600 transition">
-              Resources <ChevronDown className="w-3 h-3" />
-            </button>
-            <a href="#organizations" className="hover:text-emerald-600 transition">Organizations</a>
-            <button className="flex items-center gap-1 hover:text-emerald-600 transition">
-              About Us <ChevronDown className="w-3 h-3" />
-            </button>
+            <Link to="/find-opportunities" className="hover:text-emerald-600 transition">Find Opportunities</Link>
+            <Link to="/resources" className="hover:text-emerald-600 transition">Resources</Link>
+            <Link to="/organizations" className="hover:text-emerald-600 transition">Organizations</Link>
+            <Link to="/about" className="hover:text-emerald-600 transition">About Us</Link>
           </div>
 
           <div className="hidden lg:flex items-center gap-3">
@@ -199,10 +192,10 @@ function Navbar() {
 
         {mobileOpen && (
           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="lg:hidden pb-4 space-y-2">
-            <a href="#features" className="block px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-lg">Get Involved</a>
-            <a href="#features" className="block px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-lg">Find Opportunities</a>
-            <a href="#resources" className="block px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-lg">Resources</a>
-            <a href="#organizations" className="block px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-lg">Organizations</a>
+            <Link to="/find-opportunities" className="block px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-lg">Find Opportunities</Link>
+            <Link to="/resources" className="block px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-lg">Resources</Link>
+            <Link to="/organizations" className="block px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-lg">Organizations</Link>
+            <Link to="/about" className="block px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-lg">About Us</Link>
             <button onClick={() => setShowMap(true)} className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-lg">
               <MapPin className="w-4 h-4 text-emerald-600" /> Nearby (3 km)
             </button>
@@ -634,7 +627,7 @@ function Footer() {
             <h4 className="text-sm font-semibold text-white mb-4">Resources</h4>
             <ul className="space-y-2 text-sm">
               <li><Link to="/docs" className="hover:text-white transition">Documentation</Link></li>
-              <li><Link to="/api-reference" className="hover:text-white transition">API Reference</Link></li>
+              <li><Link to="/resources" className="hover:text-white transition">Resources</Link></li>
               <li><Link to="/blog" className="hover:text-white transition">Blog</Link></li>
               <li><Link to="/community" className="hover:text-white transition">Community</Link></li>
             </ul>

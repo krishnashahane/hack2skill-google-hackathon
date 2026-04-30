@@ -29,10 +29,14 @@ import Profile from './pages/volunteer/Profile';
 import Impact from './pages/volunteer/Impact';
 import VolNotifications from './pages/volunteer/VolNotifications';
 
+// New pages
+import Organizations from './pages/Organizations';
+import Resources from './pages/Resources';
+
 // Footer pages
 import {
   FindOpportunities, ForOrganizations, AIMatching, AnalyticsInfo,
-  Documentation, APIReference, Blog, Community,
+  Documentation, Blog, Community,
   About, Careers, Privacy, Terms,
 } from './pages/FooterPages';
 
@@ -68,6 +72,10 @@ ReactDOM.createRoot(document.getElementById('root')).render(
           <Route path="notifications" element={<VolNotifications />} />
         </Route>
 
+        {/* Public pages */}
+        <Route path="/organizations" element={<Organizations />} />
+        <Route path="/resources" element={<Resources />} />
+
         {/* Footer Pages - Platform */}
         <Route path="/find-opportunities" element={<FindOpportunities />} />
         <Route path="/for-organizations" element={<ForOrganizations />} />
@@ -76,7 +84,6 @@ ReactDOM.createRoot(document.getElementById('root')).render(
 
         {/* Footer Pages - Resources */}
         <Route path="/docs" element={<Documentation />} />
-        <Route path="/api-reference" element={<APIReference />} />
         <Route path="/blog" element={<Blog />} />
         <Route path="/community" element={<Community />} />
 
