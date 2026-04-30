@@ -153,7 +153,7 @@ export default function Profile() {
             {form.location && (
               <p className="text-xs text-slate-500 mt-2">
                 <MapPin className="w-3 h-3 inline mr-1" />
-                {form.location.lat.toFixed(4)}, {form.location.lng.toFixed(4)}
+                {form.location?.lat?.toFixed(4) ?? '—'}, {form.location?.lng?.toFixed(4) ?? '—'}
               </p>
             )}
           </div>

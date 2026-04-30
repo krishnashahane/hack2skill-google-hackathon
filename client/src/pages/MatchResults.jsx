@@ -203,7 +203,7 @@ export default function MatchResults() {
               {matchTask.location && (
                 <div className="flex items-center gap-1 text-xs text-slate-400">
                   <MapPin className="w-3.5 h-3.5" />
-                  {matchTask.location.lat.toFixed(3)}, {matchTask.location.lng.toFixed(3)}
+                  {matchTask.location?.lat?.toFixed(3) ?? '—'}, {matchTask.location?.lng?.toFixed(3) ?? '—'}
                 </div>
               )}
             </div>

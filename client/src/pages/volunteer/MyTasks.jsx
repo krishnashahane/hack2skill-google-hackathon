@@ -91,7 +91,7 @@ export default function MyTasks() {
                     </div>
                     {task.location && (
                       <span className="text-[10px] text-slate-400 flex items-center gap-1">
-                        <MapPin className="w-3 h-3" /> {task.location.lat.toFixed(3)}, {task.location.lng.toFixed(3)}
+                        <MapPin className="w-3 h-3" /> {task.location?.lat?.toFixed(3) ?? '—'}, {task.location?.lng?.toFixed(3) ?? '—'}
                       </span>
                     )}
                   </div>

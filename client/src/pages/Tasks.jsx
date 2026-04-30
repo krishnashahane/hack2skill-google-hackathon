@@ -199,7 +199,7 @@ export default function Tasks() {
                       {task.location && (
                         <div className="flex items-center gap-1 text-[10px] text-slate-400 flex-shrink-0">
                           <MapPin className="w-3 h-3" />
-                          {task.location.lat.toFixed(3)}, {task.location.lng.toFixed(3)}
+                          {task.location?.lat?.toFixed(3) ?? '—'}, {task.location?.lng?.toFixed(3) ?? '—'}
                         </div>
                       )}
                     </div>

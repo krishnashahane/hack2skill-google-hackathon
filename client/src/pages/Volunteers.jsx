@@ -165,7 +165,7 @@ export default function Volunteers() {
               {vol.location && (
                 <div className="flex items-center gap-1.5 text-xs text-slate-400 mb-3">
                   <MapPin className="w-3 h-3" />
-                  {vol.location.lat.toFixed(4)}, {vol.location.lng.toFixed(4)}
+                  {vol.location?.lat?.toFixed(4) ?? '—'}, {vol.location?.lng?.toFixed(4) ?? '—'}
                 </div>
               )}
 
