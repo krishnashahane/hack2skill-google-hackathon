@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { Menu, LogOut } from 'lucide-react';
 import AdminSidebar from './AdminSidebar';
+import ErrorBoundary from './ErrorBoundary';
 import useAuthStore from '../store/useAuthStore';
 
 export default function AdminLayout() {
@@ -48,7 +49,9 @@ export default function AdminLayout() {
           </div>
         </header>
         <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-          <Outlet />
+          <ErrorBoundary>
+            <Outlet />
+          </ErrorBoundary>
         </div>
       </main>
     </div>

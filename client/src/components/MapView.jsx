@@ -98,7 +98,7 @@ export default function MapView({
       )}
 
       {/* Task markers (red) */}
-      {tasks.map((task, i) => {
+      {tasks.filter((task) => task.location?.lat != null && task.location?.lng != null).map((task, i) => {
         const pos = toPixel(task.location.lat, task.location.lng);
         return (
           <div
