@@ -6,6 +6,8 @@ import {
   CheckCircle2, Star, TrendingUp, Clock, Award, Zap, X,
 } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 
 const fadeUp = { hidden: { opacity: 0, y: 30 }, show: { opacity: 1, y: 0 } };
 const stagger = { hidden: {}, show: { transition: { staggerChildren: 0.1 } } };
@@ -13,68 +15,57 @@ const stagger = { hidden: {}, show: { transition: { staggerChildren: 0.1 } } };
 function LocationMapPopup({ onClose }) {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
-  const [userLoc, setUserLoc] = useState({ lat: 18.5204, lng: 73.8567 }); // Pune default
-  const [locationName, setLocationName] = useState('Pune, Maharashtra');
+  const [locationName, setLocationName] = useState('Detecting location...');
   const [nearbyPlaces, setNearbyPlaces] = useState([]);
 
   useEffect(() => {
-    const doInit = (center) => {
-      if (!window.google?.maps || !mapRef.current) return;
-      const map = new window.google.maps.Map(mapRef.current, {
-        center, zoom: 15, disableDefaultUI: true, zoomControl: true,
-        styles: [
-          { featureType: 'poi', stylers: [{ visibility: 'simplified' }] },
-          { featureType: 'transit', stylers: [{ visibility: 'off' }] },
-        ],
-      });
+    const defaultLoc = { lat: 18.5204, lng: 73.8567 };
+
+    const initMap = (center) => {
+      if (!mapRef.current || mapInstanceRef.current) return;
+      const map = L.map(mapRef.current, { zoomControl: true, attributionControl: false }).setView([center.lat, center.lng], 14);
       mapInstanceRef.current = map;
 
-      new window.google.maps.Marker({ position: center, map, icon: {
-        path: window.google.maps.SymbolPath.CIRCLE, scale: 8,
-        fillColor: '#059669', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 3,
-      }});
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
 
-      new window.google.maps.Circle({
-        map, center, radius: 3000,
-        fillColor: '#10b981', fillOpacity: 0.1,
-        strokeColor: '#059669', strokeWeight: 2, strokeOpacity: 0.6,
-      });
+      L.circleMarker([center.lat, center.lng], { radius: 10, color: '#059669', fillColor: '#059669', fillOpacity: 1, weight: 3 }).addTo(map);
+      L.circle([center.lat, center.lng], { radius: 3000, color: '#059669', fillColor: '#10b981', fillOpacity: 0.1, weight: 2 }).addTo(map);
 
-      const geocoder = new window.google.maps.Geocoder();
-      geocoder.geocode({ location: center }, (results) => {
-        if (results?.[0]) setLocationName(results[0].formatted_address.split(',').slice(0, 2).join(','));
-      });
+      // Reverse geocode via Nominatim
+      fetch(`https://nominatim.openstreetmap.org/reverse?lat=${center.lat}&lon=${center.lng}&format=json`)
+        .then(r => r.json())
+        .then(d => { if (d?.display_name) setLocationName(d.display_name.split(',').slice(0, 3).join(',')); })
+        .catch(() => setLocationName(`${center.lat.toFixed(4)}, ${center.lng.toFixed(4)}`));
 
-      const service = new window.google.maps.places.PlacesService(map);
-      service.nearbySearch({ location: center, radius: 3000, type: ['point_of_interest'] }, (results) => {
-        if (results) {
-          setNearbyPlaces(results.slice(0, 8).map(p => ({
-            name: p.name,
-            vicinity: p.vicinity,
-            lat: p.geometry.location.lat(),
-            lng: p.geometry.location.lng(),
-            dist: haversineKm(center.lat, center.lng, p.geometry.location.lat(), p.geometry.location.lng()),
-          })));
-          results.slice(0, 8).forEach(p => {
-            new window.google.maps.Marker({ position: p.geometry.location, map, icon: {
-              path: window.google.maps.SymbolPath.CIRCLE, scale: 5,
-              fillColor: '#6366f1', fillOpacity: 0.8, strokeColor: '#fff', strokeWeight: 2,
-            }, title: p.name });
+      // Nearby POIs via Overpass
+      const bbox = `${center.lat - 0.027},${center.lng - 0.027},${center.lat + 0.027},${center.lng + 0.027}`;
+      fetch(`https://overpass-api.de/api/interpreter?data=[out:json];node["amenity"](${bbox});out%208;`)
+        .then(r => r.json())
+        .then(d => {
+          const pois = (d.elements || []).filter(e => e.tags?.name).slice(0, 8).map(e => ({
+            name: e.tags.name,
+            vicinity: e.tags.amenity?.replace(/_/g, ' ') || 'Place',
+            lat: e.lat, lng: e.lon,
+            dist: haversineKm(center.lat, center.lng, e.lat, e.lon),
+          }));
+          pois.sort((a, b) => a.dist - b.dist);
+          setNearbyPlaces(pois);
+          pois.forEach(p => {
+            L.circleMarker([p.lat, p.lng], { radius: 6, color: '#6366f1', fillColor: '#6366f1', fillOpacity: 0.8, weight: 2 })
+              .bindTooltip(p.name).addTo(map);
           });
-        }
-      });
-    };
+        })
+        .catch(() => {});
 
-    const waitAndInit = (center) => {
-      if (window.google?.maps) { doInit(center); return; }
-      let n = 0;
-      const t = setInterval(() => { n++; if (window.google?.maps) { clearInterval(t); doInit(center); } else if (n > 30) clearInterval(t); }, 200);
+      setTimeout(() => map.invalidateSize(), 100);
     };
 
     navigator.geolocation?.getCurrentPosition(
-      (pos) => { const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude }; setUserLoc(loc); waitAndInit(loc); },
-      () => waitAndInit(userLoc)
+      (pos) => initMap({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => { setLocationName('Pune, Maharashtra'); initMap(defaultLoc); }
     );
+
+    return () => { if (mapInstanceRef.current) { mapInstanceRef.current.remove(); mapInstanceRef.current = null; } };
   }, []);
 
   return (
@@ -90,7 +81,7 @@ function LocationMapPopup({ onClose }) {
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100"><X className="w-4 h-4" /></button>
         </div>
-        <div ref={mapRef} className="w-full h-[300px] bg-gray-100" />
+        <div ref={mapRef} className="w-full h-[300px]" />
         <div className="p-4 max-h-[200px] overflow-y-auto">
           <p className="text-xs font-semibold text-gray-500 mb-2">LOCATIONS WITHIN 3 KM RADIUS</p>
           {nearbyPlaces.length === 0 && <p className="text-sm text-gray-400">Loading nearby places...</p>}
@@ -128,21 +119,14 @@ function Navbar() {
   const [locationLabel, setLocationLabel] = useState('Detecting...');
 
   useEffect(() => {
-    const tryGeocode = (lat, lng) => {
-      if (window.google?.maps) {
-        new window.google.maps.Geocoder().geocode({ location: { lat, lng } }, (r) => {
-          if (r?.[0]) setLocationLabel(r[0].formatted_address.split(',').slice(0, 2).join(',').trim());
-          else setLocationLabel(`${lat.toFixed(2)}, ${lng.toFixed(2)}`);
-        });
-      } else setLocationLabel(`${lat.toFixed(2)}, ${lng.toFixed(2)}`);
-    };
-    const waitForGoogle = (lat, lng) => {
-      if (window.google?.maps) { tryGeocode(lat, lng); return; }
-      let n = 0;
-      const t = setInterval(() => { n++; if (window.google?.maps) { clearInterval(t); tryGeocode(lat, lng); } else if (n > 30) { clearInterval(t); setLocationLabel(`${lat.toFixed(2)}, ${lng.toFixed(2)}`); } }, 200);
-    };
     navigator.geolocation?.getCurrentPosition(
-      (pos) => waitForGoogle(pos.coords.latitude, pos.coords.longitude),
+      (pos) => {
+        const { latitude: lat, longitude: lng } = pos.coords;
+        fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`)
+          .then(r => r.json())
+          .then(d => { if (d?.display_name) setLocationLabel(d.display_name.split(',').slice(0, 2).join(',').trim()); else setLocationLabel(`${lat.toFixed(2)}, ${lng.toFixed(2)}`); })
+          .catch(() => setLocationLabel(`${lat.toFixed(2)}, ${lng.toFixed(2)}`));
+      },
       () => setLocationLabel('Pune, Maharashtra')
     );
   }, []);
