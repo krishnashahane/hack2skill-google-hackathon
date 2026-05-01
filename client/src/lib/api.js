@@ -98,11 +98,10 @@ const findTopMatches = (volunteers, task, limit = 3) =>
 
 const withFallback = async (request, fallback) => {
   try {
-    return await request();
-  } catch (error) {
-    if (import.meta.env.DEV) {
-      console.info('Using local demo data because API is unavailable.', error?.message);
-    }
+    const result = await request();
+    if (result === undefined || result === null || typeof result === 'string') throw new Error('Invalid API response');
+    return result;
+  } catch {
     return fallback();
   }
 };

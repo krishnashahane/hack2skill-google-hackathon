@@ -5,7 +5,7 @@ import {
   Leaf, Globe, Shield, Sparkles, BookOpen, Handshake, Target,
   CheckCircle2, Star, TrendingUp, Clock, Award, Zap, X,
 } from 'lucide-react';
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 const fadeUp = { hidden: { opacity: 0, y: 30 }, show: { opacity: 1, y: 0 } };
 const stagger = { hidden: {}, show: { transition: { staggerChildren: 0.1 } } };
@@ -18,62 +18,63 @@ function LocationMapPopup({ onClose }) {
   const [nearbyPlaces, setNearbyPlaces] = useState([]);
 
   useEffect(() => {
-    const waitAndInit = (center) => {
-      if (window.google?.maps) { initMap(center); return; }
-      let n = 0;
-      const t = setInterval(() => { n++; if (window.google?.maps) { clearInterval(t); initMap(center); } else if (n > 30) clearInterval(t); }, 200);
+    const doInit = (center) => {
+      if (!window.google?.maps || !mapRef.current) return;
+      const map = new window.google.maps.Map(mapRef.current, {
+        center, zoom: 15, disableDefaultUI: true, zoomControl: true,
+        styles: [
+          { featureType: 'poi', stylers: [{ visibility: 'simplified' }] },
+          { featureType: 'transit', stylers: [{ visibility: 'off' }] },
+        ],
+      });
+      mapInstanceRef.current = map;
+
+      new window.google.maps.Marker({ position: center, map, icon: {
+        path: window.google.maps.SymbolPath.CIRCLE, scale: 8,
+        fillColor: '#059669', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 3,
+      }});
+
+      new window.google.maps.Circle({
+        map, center, radius: 3000,
+        fillColor: '#10b981', fillOpacity: 0.1,
+        strokeColor: '#059669', strokeWeight: 2, strokeOpacity: 0.6,
+      });
+
+      const geocoder = new window.google.maps.Geocoder();
+      geocoder.geocode({ location: center }, (results) => {
+        if (results?.[0]) setLocationName(results[0].formatted_address.split(',').slice(0, 2).join(','));
+      });
+
+      const service = new window.google.maps.places.PlacesService(map);
+      service.nearbySearch({ location: center, radius: 3000, type: ['point_of_interest'] }, (results) => {
+        if (results) {
+          setNearbyPlaces(results.slice(0, 8).map(p => ({
+            name: p.name,
+            vicinity: p.vicinity,
+            lat: p.geometry.location.lat(),
+            lng: p.geometry.location.lng(),
+            dist: haversineKm(center.lat, center.lng, p.geometry.location.lat(), p.geometry.location.lng()),
+          })));
+          results.slice(0, 8).forEach(p => {
+            new window.google.maps.Marker({ position: p.geometry.location, map, icon: {
+              path: window.google.maps.SymbolPath.CIRCLE, scale: 5,
+              fillColor: '#6366f1', fillOpacity: 0.8, strokeColor: '#fff', strokeWeight: 2,
+            }, title: p.name });
+          });
+        }
+      });
     };
+
+    const waitAndInit = (center) => {
+      if (window.google?.maps) { doInit(center); return; }
+      let n = 0;
+      const t = setInterval(() => { n++; if (window.google?.maps) { clearInterval(t); doInit(center); } else if (n > 30) clearInterval(t); }, 200);
+    };
+
     navigator.geolocation?.getCurrentPosition(
       (pos) => { const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude }; setUserLoc(loc); waitAndInit(loc); },
       () => waitAndInit(userLoc)
     );
-  }, [initMap]);
-
-  const initMap = useCallback((center) => {
-    if (!window.google || !mapRef.current) return;
-    const map = new window.google.maps.Map(mapRef.current, {
-      center, zoom: 15, disableDefaultUI: true, zoomControl: true,
-      styles: [
-        { featureType: 'poi', stylers: [{ visibility: 'simplified' }] },
-        { featureType: 'transit', stylers: [{ visibility: 'off' }] },
-      ],
-    });
-    mapInstanceRef.current = map;
-
-    new window.google.maps.Marker({ position: center, map, icon: {
-      path: window.google.maps.SymbolPath.CIRCLE, scale: 8,
-      fillColor: '#059669', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 3,
-    }});
-
-    new window.google.maps.Circle({
-      map, center, radius: 3000,
-      fillColor: '#10b981', fillOpacity: 0.1,
-      strokeColor: '#059669', strokeWeight: 2, strokeOpacity: 0.6,
-    });
-
-    const geocoder = new window.google.maps.Geocoder();
-    geocoder.geocode({ location: center }, (results) => {
-      if (results?.[0]) setLocationName(results[0].formatted_address.split(',').slice(0, 2).join(','));
-    });
-
-    const service = new window.google.maps.places.PlacesService(map);
-    service.nearbySearch({ location: center, radius: 3000, type: ['point_of_interest'] }, (results) => {
-      if (results) {
-        setNearbyPlaces(results.slice(0, 8).map(p => ({
-          name: p.name,
-          vicinity: p.vicinity,
-          lat: p.geometry.location.lat(),
-          lng: p.geometry.location.lng(),
-          dist: haversineKm(center.lat, center.lng, p.geometry.location.lat(), p.geometry.location.lng()),
-        })));
-        results.slice(0, 8).forEach(p => {
-          new window.google.maps.Marker({ position: p.geometry.location, map, icon: {
-            path: window.google.maps.SymbolPath.CIRCLE, scale: 5,
-            fillColor: '#6366f1', fillOpacity: 0.8, strokeColor: '#fff', strokeWeight: 2,
-          }, title: p.name });
-        });
-      }
-    });
   }, []);
 
   return (
